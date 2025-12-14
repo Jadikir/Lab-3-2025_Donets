@@ -1,0 +1,175 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "c3e028ce-fcca-495c-a580-4e7eb2917be7",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/predict",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.api_request_object }}",
+        "options": {}
+      },
+      "id": "827323ca-806a-477f-a188-42f32085edaf",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1840,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"Generate Dates\" node - исправленный\nconst today = new Date();\nconst dates = [];\n\nfor (let i = 1; i <= 7; i++) {\n  const date = new Date(today);\n  date.setDate(today.getDate() + i);\n  \n  const year = date.getFullYear();\n  const month = String(date.getMonth() + 1).padStart(2, '0');\n  const day = String(date.getDate()).padStart(2, '0');\n  \n  dates.push(`${year}-${month}-${day}`);\n}\n\n// Возвращаем dates как массив\nreturn [{\n  json: {\n    dates: dates,  // Это массив!\n    dates_as_array: dates,  // Дублируем для ясности\n    dates_as_json_string: JSON.stringify(dates)  // Для отладки\n  }\n}];"
+      },
+      "id": "7d8d837a-3432-466e-a384-f7baae9b500f",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node: Create API JSON\nconst dates = $input.first().json.dates;\n\n// Создаем объект запроса\nconst requestBody = {\n  dates: dates,\n  city: \"austin\",\n  include_confidence: true\n};\n\n// Возвращаем как строку JSON\nreturn [{\n  json: {\n    api_request_json: JSON.stringify(requestBody),\n    api_request_object: requestBody\n  }\n}];"
+      },
+      "id": "27743c85-532e-46b1-a8a8-0399fcd6476a",
+      "name": "Code1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format for Telegram node\nconst response = $input.first().json;\nconst predictions = response.predictions;\nconst metadata = response.metadata;\n\n// Эмодзи для дней недели\nconst dayEmojis = ['☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌈'];\n// Названия дней недели\nconst dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];\n\n// Заголовок\nlet message = `🌤️ *ПРОГНОЗ ПОГОДЫ НА НЕДЕЛЮ*\\n`;\nmessage += `📍 *Город:* ${metadata.city.toUpperCase()}\\n`;\nmessage += `📅 *Период:* ${predictions[0].date} - ${predictions[predictions.length-1].date}\\n\\n`;\n\n// Температурная шкала для визуализации\nfunction getTempEmoji(temp) {\n  if (temp < 0) return '❄️';      // мороз\n  else if (temp < 10) return '🥶'; // холодно\n  else if (temp < 20) return '😊'; // прохладно\n  else if (temp < 30) return '😎'; // комфортно\n  else if (temp < 35) return '🔥'; // жарко\n  else return '☀️';               // очень жарко\n}\n\nfunction getTempBar(temp) {\n  // Визуализация температуры (от 0 до 40°C)\n  const normalized = Math.min(40, Math.max(0, temp));\n  const bars = Math.round(normalized / 2); // 1 бар = 2°C\n  return '▰'.repeat(bars) + '▱'.repeat(20 - bars);\n}\n\n// Прогноз по дням\npredictions.forEach((pred, index) => {\n  const date = new Date(pred.date);\n  const dayName = dayNames[date.getDay()];\n  const dayEmoji = dayEmojis[index % dayEmojis.length];\n  \n  message += `${dayEmoji} *${dayName} ${pred.date}:*\\n`;\n  message += `   🌡️ ${pred.temperature_c.toFixed(1)}°C (${pred.temperature_f.toFixed(1)}°F)\\n`;\n  \n  // Температурная визуализация\n  message += `   ${getTempBar(pred.temperature_c)} ${getTempEmoji(pred.temperature_c)}\\n`;\n  \n  // Доверительный интервал\n  if (pred.confidence_interval) {\n    const ci = pred.confidence_interval;\n    const range = (ci.upper - ci.lower).toFixed(1);\n    message += `   📊 Доверие: ${ci.lower}°C - ${ci.upper}°C (±${range}°C)\\n`;\n  }\n  \n  // Рекомендация\n  let recommendation = '';\n  if (pred.temperature_c < 5) recommendation = '❄️ Одевайтесь очень тепло!';\n  else if (pred.temperature_c < 15) recommendation = '🧥 Наденьте куртку';\n  else if (pred.temperature_c < 25) recommendation = '👕 Идеальная погода для прогулок';\n  else if (pred.temperature_c < 30) recommendation = '🩳 Можно в шортах';\n  else recommendation = '🧊 Пейте больше воды!';\n  \n  message += `   💡 ${recommendation}\\n\\n`;\n});\n\n// Статистика\nconst avgTemp = (predictions.reduce((sum, p) => sum + p.temperature_c, 0) / predictions.length).toFixed(1);\nconst minTemp = Math.min(...predictions.map(p => p.temperature_c)).toFixed(1);\nconst maxTemp = Math.max(...predictions.map(p => p.temperature_c)).toFixed(1);\n\nmessage += `📈 *СТАТИСТИКА НЕДЕЛИ:*\\n`;\nmessage += `   📊 Средняя: ${avgTemp}°C\\n`;\nmessage += `   ⬇️ Минимум: ${minTemp}°C\\n`;\nmessage += `   ⬆️ Максимум: ${maxTemp}°C\\n\\n`;\n\n// Прогнозная информация\nmessage += `ℹ️ *ИНФОРМАЦИЯ:*\\n`;\nmessage += `   🏙️ Город: ${metadata.city}\\n`;\nmessage += `   🤖 Модель: ${metadata.model_type}\\n`;\nmessage += `   ⏰ Обновлено: ${new Date(metadata.prediction_time).toLocaleString('ru-RU')}\\n`;\nmessage += `   📅 Дней в прогнозе: ${metadata.total_dates}\\n\\n`;\n\nmessage += `_Прогноз обновляется автоматически каждую неделю_ ✨`;\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    telegram_message: message,\n    stats: {\n      avg_temp: avgTemp,\n      min_temp: minTemp,\n      max_temp: maxTemp,\n      city: metadata.city\n    }\n  }\n}];"
+      },
+      "id": "909cd48b-3db1-43f5-b8e5-c9074e1aa829",
+      "name": "Code2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "645259904",
+        "text": "=1 {{ $json.telegram_message }}",
+        "additionalFields": {}
+      },
+      "id": "5d9b124f-dcc1-4fc5-a856-8b2130d24513",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        2280,
+        500
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "haEHOH4X1xLkZ2pE",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2fb12274-037d-4656-bad9-36886339d0f9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91168cb9dab1d51aa40e4d988b6b4d0badbd085170a6bd921943881fa5250071"
+  },
+  "id": "8nYlxVNRKjmFcz9w",
+  "tags": []
+}
