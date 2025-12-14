@@ -1,0 +1,46 @@
+{
+  "database": {
+    "type": "sqlite",
+    "database": "/app/n8n_data/database.sqlite"
+  },
+  "executions": {
+    "process": "main",
+    "saveDataOnSuccess": "all",
+    "saveDataOnError": "all",
+    "saveExecutionProgress": true
+  },
+  "generic": {
+    "timezone": "Europe/Moscow",
+    "webhookUrl": "http://localhost:5678/"
+  },
+  "endpoints": {
+    "rest": "api",
+    "webhook": "webhook",
+    "webhookTest": "webhook-test"
+  },
+  "externalHookFiles": {
+    "existingFlows": "/app/n8n_data/existingFlows.js",
+    "restart": "/app/n8n_data/restart.js"
+  },
+  "security": {
+    "basicAuth": {
+      "active": true,
+      "user": "admin",
+      "password": "password123"
+    }
+  },
+  "logs": {
+    "level": "info",
+    "output": "file",
+    "file": {
+      "location": "/app/logs/n8n.log",
+      "fileCountMax": 10,
+      "fileSizeMax": 104857600
+    }
+  },
+  "externalStorage": {
+    "local": {
+      "path": "/app/n8n_data/files"
+    }
+  }
+}

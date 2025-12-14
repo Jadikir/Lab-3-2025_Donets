@@ -1,0 +1,56 @@
+# docker-compose.api-n8n.yml
+version: '3.8'
+
+services:
+  weather-n8n:
+    build: .
+    container_name: weather-forecast-n8n
+    ports:
+      - "8000:8000"  # FastAPI
+      - "5678:5678"  # N8N
+      - "5679:5679"  # N8N Editor (опционально)
+    environment:
+      # Настройки FastAPI
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=INFO
+      
+      # Настройки N8N
+      - N8N_PROTOCOL=http
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_WEBHOOK_URL=http://localhost:5678/
+      - N8N_EDITOR_BASE_URL=http://localhost:5679
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-weather-forecast-key}
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-password123}
+      - NODE_ENV=production
+      
+      # Open-Meteo API
+      - WEATHER_API_URL=https://api.open-meteo.com/v1/forecast
+    volumes:
+      # Модели и данные
+      - ./models:/app/models
+      - ./data:/app/data
+      
+      # N8N данные
+      - ./n8n_data:/app/n8n_data
+      - ./n8n_workflows:/app/n8n_workflows
+      
+      # Логи
+      - ./logs:/app/logs
+    
+    restart: unless-stopped
+    networks:
+      - weather-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  weather-network:
+    driver: bridge

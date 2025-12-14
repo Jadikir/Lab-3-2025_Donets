@@ -1,0 +1,23 @@
+[
+  "Temperature_C",
+  "year",
+  "month",
+  "day",
+  "dayofweek",
+  "dayofyear",
+  "quarter",
+  "hour",
+  "month_sin",
+  "month_cos",
+  "dayofyear_sin",
+  "dayofyear_cos",
+  "season",
+  "is_weekend",
+  "is_summer",
+  "is_winter",
+  "Temperature_C_lag_1d",
+  "Temperature_C_lag_2d",
+  "Temperature_C_lag_3d",
+  "Temperature_C_lag_7d",
+  "Temperature_C_lag_14d"
+]
